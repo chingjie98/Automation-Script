@@ -1,0 +1,139 @@
+Sub Final()
+
+
+Dim StartTime As Double
+Dim MinutesElapsed As String
+StartTime = Timer                        'Record time taken for whole macro to finish
+
+
+'-----------------Declarations-----------------------------------
+
+Dim GetUserName As String
+Dim MainReportPath As String
+Dim MainReport As Workbook
+Dim Results As Workbook
+Dim Start_Col As String
+Dim End_Col As String
+Dim i As Integer
+Dim u As Integer
+Dim parts() As String
+Dim WIndowPathName As String
+Dim example As String
+
+Application.ScreenUpdating = False
+
+
+'-----------------Start Of Program-------------------------------
+
+Set MyRequest = CreateObject("Shell.Application")
+
+GetUserName = Environ$("Username") 'Get UserName to access Download Path
+
+'----------------Kill all existing CSV Files in Download Folder-----
+
+fileName = Dir("C:\Users\" + GetUserName + "\Downloads\*.csv")
+Do While fileName <> ""
+    Kill "C:\Users\" + GetUserName + "\Downloads\" + fileName
+    fileName = Dir
+Loop
+
+'----Proceed to find if there is data inputted by users in Col A---
+i = 4 'Start from row 4
+
+Do Until Workbooks("Book1.xlsm").Sheets("Sheet1").Cells(i, 1) = "" 'Loop until row is Blank
+
+    MainReportPath = Workbooks("Book1.xlsm").Sheets("Sheet1").Range("C" + CStr(i)).Value     'Feed MainReportPath into variable
+    MainReportSheetName = Workbooks("Book1.xlsm").Sheets("Sheet1").Range("D" + CStr(i)).Value 'Feed MainReportSheetName into variable
+    Start_Col = Workbooks("Book1.xlsm").Sheets("Sheet1").Range("E" + CStr(i)).Value            'Feed Start_Col into variable
+    End_Col = Workbooks("Book1.xlsm").Sheets("Sheet1").Range("F" + CStr(i)).Value              'Feed End_Col into variable
+    
+'----If there is no exact Download Link then go to webpage to find export button----
+    
+    If Workbooks("Book1.xlsm").Sheets("Sheet1").Cells(i, 1) = "Null" Then
+    
+        WebsiteName = Workbooks("Book1.xlsm").Sheets("Sheet1").Range("B" + CStr(i)).Value
+        parts = Split(WebsiteName, " (ocbc.com)")
+        
+        MyRequest.ShellExecute Workbooks("Book1.xlsm").Sheets("Sheet1").Range("B" + CStr(i)).Hyperlinks(1).Address + Workbooks("Book1.xlsm").Sheets("Sheet1").Range("B" + CStr(i)).Hyperlinks(1).SubAddress
+        Application.Wait (Now + TimeValue("0:00:05"))
+        
+        AppActivate parts(0)
+        SendKeys "^f"
+        SendKeys "export"
+        SendKeys "{ESC}"
+        SendKeys "{enter}"
+        SendKeys "^f"
+        SendKeys "csv"
+        SendKeys "{ESC}"
+        SendKeys "{enter}"
+        
+'----If there is exact download link for CSV, straight away download without going to webpage---
+    
+    Else
+        MyRequest.ShellExecute Workbooks("Book1.xlsm").Sheets("Sheet1").Range("A" + CStr(i)).Value
+    End If
+
+'----Check if CSV File has been downloaded, if not, keep looping------
+
+CheckFile:
+    fileName = Dir("C:\users\" + GetUserName + "\Downloads\*.csv")
+
+If fileName = "" Then
+    Application.Wait (Now + TimeValue("0:00:01"))
+    DoEvents
+    GoTo CheckFile
+    
+'----Once CSV File has been downloaded, Copy paste filtered data into Main Report-----
+Else
+    
+    Set MainReport = Workbooks.Open(MainReportPath) 'Open Main Report
+    MainReportName = Dir(MainReportPath)            'Get the FileName of the Main Report
+
+    If Workbooks("Book1.xlsm").Sheets("Sheet1").Range("G" + CStr(i)).Value <> "" Then
+        Set Results = Workbooks.Open("C:\Users\" + GetUserName + "\Downloads\" + fileName)
+        ActiveSheet.Cells.Select
+        Dim cNum As Integer   'Change alphabet column to numerical column to put into AutoField
+        cNum = Workbooks("Book1.xlsm").Sheets("Sheet1").Range(Workbooks("Book1.xlsm").Sheets("Sheet1").Range("G" & CStr(i)) + "1").Column
+        Selection.AutoFilter Field:=cNum, Criteria1:=Workbooks("Book1.xlsm").Sheets("Sheet1").Range("H" & CStr(i))
+    End If
+    
+    Set Results = Workbooks.Open("C:\Users\" + GetUserName + "\Downloads\" + fileName)
+    Range(Start_Col + "2:" + End_Col + "2", Selection.End(xlDown)).Font.Size = 8
+    Range(Start_Col + "2:" + End_Col + "2", Selection.End(xlDown)).Select
+    Selection.Copy Workbooks(MainReportName).Worksheets(MainReportSheetName).Range("A2") 'CopyPaste filtered data into main report
+    ActiveSheet.Range("A1").End(xlDown).Select
+    LastRow = ActiveCell.Row
+    ActiveSheet.Rows("2:" & LastRow).RowHeight = 16
+    ActiveSheet.Rows("2:" & LastRow).VerticalAlignment = xlAlignCenter
+    ActiveSheet.Rows("2:" & LastRow).HorizontalAlignment = xlLeft
+    ActiveSheet.Cells(1, 1).Select
+    
+    If Workbooks("Book1.xlsm").Sheets("Sheet1").Range("I" + CStr(i)).Value <> "" Then
+        u = 9
+        Do Until Workbooks("Book1.xlsm").Sheets("Sheet1").Cells(i, u) = ""
+            AutoFill_Col = Workbooks("Book1.xlsm").Sheets("Sheet1").Cells(i, u)
+            Workbooks(MainReportName).Worksheets(MainReportSheetName).Activate
+            Workbooks(MainReportName).Worksheets(MainReportSheetName).Range("A1").End(xlDown).Select
+            LastRow = ActiveCell.Row
+            ActiveSheet.Range(AutoFill_Col & "2").AutoFill Range(AutoFill_Col & "2:" & AutoFill_Col & LastRow)
+            u = u + 1
+        Loop
+    End If
+    
+    Results.Close SaveChanges:=False
+    Kill "C:\Users\" + GetUserName + "\Downloads\" & fileName
+End If
+
+i = i + 1
+
+Loop
+
+    Application.ScreenUpdating = True
+    MinutesElapsed = Format((Timer - StartTime) / 86400, "hh:mm:ss")
+    MsgBox "This code successfully ran in " & MinutesElapsed & " minutes", vbInformation
+    
+End Sub
+
+
+        
+  
